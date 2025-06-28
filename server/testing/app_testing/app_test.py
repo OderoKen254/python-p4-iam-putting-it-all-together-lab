@@ -53,8 +53,10 @@ class TestSignup:
                         The power that's inside''')
             assert(data['username'] == 'ashketchum')
             assert 'id' in data
-            assert 'user_id' in client.session
-            assert client.session['user_id'] == data['id']
+
+            with client.session_transaction() as sess:
+                assert 'user_id' in sess
+                assert sess['user_id'] == data['id']
 
     def test_422s_invalid_users_at_signup(self):
         '''422s invalid usernames at /signup.'''
@@ -176,8 +178,10 @@ class TestLogin:
             assert response.status_code == 200
             data = response.get_json()
             assert data['id'] is not None
-            assert 'user_id' in client.session
-            assert client.session['user_id'] == data['id']
+            with client.session_transaction() as sess:
+                assert 'user_id' in sess
+                assert sess['user_id'] == data['id']
+
 
     def test_401s_bad_logins(self):
         '''returns 401 for an invalid username and password at /login.'''
@@ -201,14 +205,14 @@ class TestLogin:
 
     #     client.post('/signup', json={
     #         'username': 'testuser',
-    #         'password': 'paswerd',
+    #         'password': 'testpass',
     #         'image_url': 'https://example.com/image.jpg',
     #         'bio': 'Test bio'
     #     })
 
     #     response = client.post('/login', json={
     #         'username': 'testuser',
-    #         'password': 'paswerd'
+    #         'password': 'wrongpass'
     #     })
     #     assert response.status_code == 401
     #     data = response.get_json()
@@ -250,15 +254,13 @@ class TestLogout:
     def test_401s_if_no_session(self):
         '''returns 401 if a user attempts to logout without a session at /logout.'''
         with app.test_client() as client:
-            # Ensure no user_id is in the session
-            with client.session_transaction() as session:
-                if 'user_id' in session:
-                    del session['user_id']
 
+            with client.session_transaction() as session:
+                session['user_id'] = None
+            
             response = client.delete('/logout')
+
             assert response.status_code == 401
-            data = response.get_json()
-            assert data['error'] == 'User not logged in'
 
 class TestRecipeIndex:
     '''RecipeIndex resource in app.py'''

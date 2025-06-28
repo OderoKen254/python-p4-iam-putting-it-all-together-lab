@@ -131,7 +131,81 @@ class Logout(Resource):
 
 
 class RecipeIndex(Resource):
-    pass
+    def get(self):
+        # Handle recipe viewing by implementing GET /recipes route
+        user_id = session.get('user_id')
+        if not user_id:
+            return {"error": "User not logged in"}, 401
+
+        recipes = Recipe.query.all()
+        recipe_data = [
+            {
+                "id": recipe.id,
+                "title": recipe.title,
+                "instructions": recipe.instructions,
+                "minutes_to_complete": recipe.minutes_to_complete,
+                "user": {
+                    "id": recipe.user.id,
+                    "username": recipe.user.username,
+                    "image_url": recipe.user.image_url,
+                    "bio": recipe.user.bio
+                }
+            } for recipe in recipes
+        ]
+        return recipe_data, 200
+
+    def post(self):
+        # Handle recipe creation by implementing POST /recipes route
+        user_id = session.get('user_id')
+        if not user_id:
+            return {"error": "User not logged in"}, 401
+
+        data = request.get_json()
+        if not data:
+            return {"error": "No input data provided"}, 422
+
+        title = data.get('title')
+        instructions = data.get('instructions')
+        minutes_to_complete = data.get('minutes_to_complete')
+
+        errors = []
+        if not title:
+            errors.append("Title must be provided")
+        if not instructions:
+            errors.append("Instructions must be provided")
+        elif len(instructions) < 50:
+            errors.append("Instructions must be at least 50 characters long")
+        if minutes_to_complete is not None and not isinstance(minutes_to_complete, int):
+            errors.append("Minutes to complete must be an integer")
+
+        if errors:
+            return {"errors": errors}, 422
+
+        user = db.session.get(User, user_id)
+        if not user:
+            return {"error": "User not found"}, 401
+
+        recipe = Recipe(
+            title=title,
+            instructions=instructions,
+            minutes_to_complete=minutes_to_complete,
+            user_id=user_id
+        )
+        db.session.add(recipe)
+        db.session.commit()
+
+        return {
+            "id": recipe.id,
+            "title": recipe.title,
+            "instructions": recipe.instructions,
+            "minutes_to_complete": recipe.minutes_to_complete,
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "image_url": user.image_url,
+                "bio": user.bio
+            }
+        }, 201
 
 api.add_resource(Signup, '/signup', endpoint='signup')
 api.add_resource(CheckSession, '/check_session', endpoint='check_session')
