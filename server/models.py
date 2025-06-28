@@ -23,9 +23,17 @@ class User(db.Model, SerializerMixin):
     @password_hash.setter
     def password_hash(self, password):
         self._password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+        # if password:  # Only hash if password is provided
+        #     self._password_hash = bcrypt.generate_password_hash(password).decode('utf-8')
+        # else:
+        #     self._password_hash = None  # Allow None if nullable
 
     def authenticate(self, password):
+        """Check if the provided password matches the stored hash."""
         return bcrypt.check_password_hash(self._password_hash, password)
+        # if self._password_hash is None:
+        #     return False
+        # return bcrypt.check_password_hash(self._password_hash, password)
 
     @validates('username')
     def validate_username(self, key, username):

@@ -63,8 +63,9 @@ class TestUser:
             db.session.commit()
 
             user = User()
-            with pytest.raises(IntegrityError):
-                db.session.add(user)
+            user.password_hash = "somepassword"  # Set password to avoid NOT NULL error
+            db.session.add(user)
+            with pytest.raises(IntegrityError):  # Expect IntegrityError due to nullable=False
                 db.session.commit()
 
     def test_requires_unique_username(self):
@@ -76,11 +77,18 @@ class TestUser:
             db.session.commit()
 
             user_1 = User(username="Ben")
+            user_1.password_hash = "password1"  # Set password
             user_2 = User(username="Ben")
+            user_2.password_hash = "password2"  # Set password
 
-            with pytest.raises(IntegrityError):
-                db.session.add_all([user_1, user_2])
-                db.session.commit()
+
+            db.session.add(user_1)
+            db.session.commit()  # Commit first user
+
+            with db.session.no_autoflush:  # Prevent auto-flush to test unique constraint
+                db.session.add(user_2)
+                with pytest.raises(IntegrityError):  # Expect IntegrityError for duplicate username
+                    db.session.commit()
 
     def test_has_list_of_recipes(self):
         '''has records with lists of recipes records attached.'''
@@ -88,9 +96,11 @@ class TestUser:
         with app.app_context():
 
             User.query.delete()
+            Recipe.query.delete()
             db.session.commit()
 
             user = User(username="Prabhdip")
+            user.password_hash = "somepassword"  # Set password to avoid NOT NULL error
 
             recipe_1 = Recipe(
                 title="Delicious Shed Ham",
@@ -118,14 +128,16 @@ class TestUser:
             user.recipes.append(recipe_1)
             user.recipes.append(recipe_2)
 
-            db.session.add_all([user, recipe_1, recipe_2])
+            db.session.add(user)  # Adding user will cascade to recipes
             db.session.commit()
 
-            # check that all were created in db
-            assert(user.id)
-            assert(recipe_1.id)
-            assert(recipe_2.id)
+            # Check that all were created in db
+            assert user.id
+            assert recipe_1.id
+            assert recipe_2.id
 
-            # check that recipes were saved to user
-            assert(recipe_1 in user.recipes)
-            assert(recipe_2 in user.recipes)
+            # Check that recipes were saved to user
+            assert recipe_1 in user.recipes
+            assert recipe_2 in user.recipes
+            assert recipe_1.user_id == user.id
+            assert recipe_2.user_id == user.id

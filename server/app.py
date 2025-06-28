@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
-from flask import request, session
+from flask import request, session, make_response
 from flask_restful import Resource
 from sqlalchemy.exc import IntegrityError
 
-from config import app, db, api
+from config import app, db, api, bcrypt
+from flask_cors import CORS
 from models import User, Recipe
 
-class Signup(Resource):
-    pass
+
 
 class CheckSession(Resource):
     pass
