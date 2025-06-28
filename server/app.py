@@ -5,7 +5,6 @@ from flask_restful import Resource
 from sqlalchemy.exc import IntegrityError
 
 from config import app, db, api, bcrypt
-from flask_cors import CORS
 from models import User, Recipe
 
 class Signup(Resource):
@@ -69,13 +68,67 @@ class Signup(Resource):
             return {"errors": [f"An error occurred: {str(e)}"]}, 422
 
 class CheckSession(Resource):
-    pass
+    def get(self):
+        # Check if user_id is in session
+        user_id = session.get('user_id')
+        if not user_id:
+            return {"error": "User not logged in"}, 401
+        
+         # Query user by ID
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return {"error": "User not found"}, 401
+
+        # Return user data
+        return {
+            "id": user.id,
+            "username": user.username,
+            "image_url": user.image_url,
+            "bio": user.bio
+        }, 200
 
 class Login(Resource):
-    pass
+    def post(self):
+        # Handle login by implementing POST /login route
+        try:
+            data = request.get_json()
+            if not data:
+                return {"error": "No input data provided"}, 422
+
+            username = data.get('username')
+            password = data.get('password')
+
+            if not username or not password:
+                return {"error": "Username and password are required"}, 422
+
+            user = User.query.filter_by(username=username).first()
+            if user and user.authenticate(password):
+                # If authenticated, save user ID in session and return user data
+                session['user_id'] = user.id
+                return {
+                    "id": user.id,
+                    "username": user.username,
+                    "image_url": user.image_url,
+                    "bio": user.bio
+                }, 200
+            else:
+                # If not authenticated, return error with 401 status
+                return {"error": "Invalid username or password"}, 401
+
+        except Exception as e:
+            return {"error": f"An error occurred: {str(e)}"}, 500
 
 class Logout(Resource):
-    pass
+    def delete(self):
+        # Handle logout by implementing DELETE /logout route
+        user_id = session.get('user_id')
+        if user_id is not None:  # Check for a valid user_id
+            session.pop('user_id', None)
+            return '', 204
+        else:
+            # If not logged in, return 401 with error
+            return {"error": "User not logged in"}, 401
+
 
 class RecipeIndex(Resource):
     pass

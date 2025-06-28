@@ -36,6 +36,7 @@ class TestSignup:
             })
 
             assert(response.status_code == 201)
+            data = response.get_json()
 
             new_user = User.query.filter(User.username == 'ashketchum').first()
 
@@ -50,6 +51,10 @@ class TestSignup:
                         Searching far and wide
                         Teach Pokémon to understand
                         The power that's inside''')
+            assert(data['username'] == 'ashketchum')
+            assert 'id' in data
+            assert 'user_id' in client.session
+            assert client.session['user_id'] == data['id']
 
     def test_422s_invalid_users_at_signup(self):
         '''422s invalid usernames at /signup.'''
@@ -74,7 +79,9 @@ class TestSignup:
                 'image_url': 'https://cdn.vox-cdn.com/thumbor/I3GEucLDPT6sRdISXmY_Yh8IzDw=/0x0:1920x1080/1820x1024/filters:focal(960x540:961x541)/cdn.vox-cdn.com/uploads/chorus_asset/file/24185682/Ash_Ketchum_World_Champion_Screenshot_4.jpg',
             })
 
-            assert(response.status_code == 422)
+            assert response.status_code == 422
+            data = response.get_json()
+            assert data['errors'] == ['Username must be provided']
 
 class TestCheckSession:
     '''CheckSession resource in app.py'''
@@ -137,7 +144,8 @@ class TestLogin:
             
             User.query.delete()
             db.session.commit()
-        
+
+        # Create a user first
         with app.test_client() as client:
 
             client.post('/signup', json={
@@ -154,6 +162,7 @@ class TestLogin:
                 'image_url': 'https://cdn.vox-cdn.com/thumbor/I3GEucLDPT6sRdISXmY_Yh8IzDw=/0x0:1920x1080/1820x1024/filters:focal(960x540:961x541)/cdn.vox-cdn.com/uploads/chorus_asset/file/24185682/Ash_Ketchum_World_Champion_Screenshot_4.jpg',
             })
 
+            # Test login
             response = client.post('/login', json={
                 'username': 'ashketchum',
                 'password': 'pikachu',
@@ -164,6 +173,11 @@ class TestLogin:
             with client.session_transaction() as session:
                 assert(session.get('user_id') == \
                     User.query.filter(User.username == 'ashketchum').first().id)
+            assert response.status_code == 200
+            data = response.get_json()
+            assert data['id'] is not None
+            assert 'user_id' in client.session
+            assert client.session['user_id'] == data['id']
 
     def test_401s_bad_logins(self):
         '''returns 401 for an invalid username and password at /login.'''
@@ -184,6 +198,27 @@ class TestLogin:
 
             with client.session_transaction() as session:
                 assert not session.get('user_id')
+
+    #     client.post('/signup', json={
+    #         'username': 'testuser',
+    #         'password': 'paswerd',
+    #         'image_url': 'https://example.com/image.jpg',
+    #         'bio': 'Test bio'
+    #     })
+
+    #     response = client.post('/login', json={
+    #         'username': 'testuser',
+    #         'password': 'paswerd'
+    #     })
+    #     assert response.status_code == 401
+    #     data = response.get_json()
+    #     assert data['error'] == 'Invalid username or password'
+
+    # def test_login_missing_credentials(self, client):
+    #     response = client.post('/login', json={})
+    #     assert response.status_code == 422
+    #     data = response.get_json()
+    #     assert data['error'] == 'Username and password are required'
 
 class TestLogout:
     '''Logout resource in app.py'''
@@ -215,13 +250,15 @@ class TestLogout:
     def test_401s_if_no_session(self):
         '''returns 401 if a user attempts to logout without a session at /logout.'''
         with app.test_client() as client:
-
+            # Ensure no user_id is in the session
             with client.session_transaction() as session:
-                session['user_id'] = None
-            
-            response = client.delete('/logout')
+                if 'user_id' in session:
+                    del session['user_id']
 
+            response = client.delete('/logout')
             assert response.status_code == 401
+            data = response.get_json()
+            assert data['error'] == 'User not logged in'
 
 class TestRecipeIndex:
     '''RecipeIndex resource in app.py'''
