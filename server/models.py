@@ -42,4 +42,27 @@ class User(db.Model, SerializerMixin):
 class Recipe(db.Model, SerializerMixin):
     __tablename__ = 'recipes'
     
-    pass
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    instructions = db.Column(db.Text, nullable=False)
+    minutes_to_complete = db.Column(db.Integer)
+
+    # Foreign key to associate recipe with user
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # relationships
+    user = db.relationship('User', back_populates='recipes')
+
+    @validates('title')
+    def validate_title(self, key, title):
+        if not title:
+            raise ValueError('Title must be provided')
+        return title
+
+    @validates('instructions')
+    def validate_instructions(self, key, instructions):
+        if not instructions:
+            raise ValueError('Instructions must be provided')
+        if len(instructions) < 50:
+            raise ValueError('Instructions must be at least 50 characters long')
+        return instructions
